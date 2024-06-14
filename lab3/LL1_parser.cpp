@@ -68,7 +68,10 @@ struct Grammar
 } grammar;
 
 const std::string ruleFilePath = "./production_rule.txt";
+// const std::string ruleFilePath = "./test.txt";
 const std::string sentence = "(n+n)*n-n/n#";
+// const std::string sentence = "010101010000100#";
+
 typedef std::vector<std::vector<productionRule>> PredictTable;
 
 std::vector<std::string> FileRead(const std::string &filepath)
