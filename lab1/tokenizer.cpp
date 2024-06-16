@@ -103,10 +103,13 @@ private:
                     ++_pos;
                 }
                 return _DOUBLE_;    // 8
-            } else if(ch == '0' && !isDigit(nextChar)) { // 不是数字也不是.，说明是单纯的一个0
+            }  else if(ch == '0' && isLetter(nextChar)) {  // digit1
+                return _ERROR_;
+            }else if(ch == '0' && !isDigit(nextChar))
+            { // 不是数字也不是.，说明是单纯的一个0
                 _curToken = "0";
                 return _INT_;   // 5
-            } else if(ch != '0') {  // digit1
+            }else if(ch != '0') {  // digit1
                 _curToken = ch;
                 while(isDigit(peek())) {
                     _curToken += peek();
@@ -190,7 +193,7 @@ private:
                 while(_pos < _src.size()) {
                     if(nextChar == '*' && peek() == '/') {
                         _tokenList.push_back(token(catagoryCodeTable["/*"], "/*", cat[_DELIMITER_]));
-                        _tokenList.push_back(token(0, _curToken, cat[_COMMENT_]));
+                        _tokenList.push_back(token(64, _curToken, cat[_COMMENT_]));
                         _tokenList.push_back(token(catagoryCodeTable["*/"], "*/", cat[_DELIMITER_]));
                         ++_pos;
                         ++_pos;
@@ -201,8 +204,7 @@ private:
                         ++_pos;
                     }
                 }
-                return _ERROR_;
-            }
+            } else return _ERROR_;
         }
 
         if(isOP(ch)) {   // op运算符
@@ -253,6 +255,9 @@ private:
         if(type == _OPERATOR_ || type == _KEYWORD_ || type == _DELIMITER_) {
             _tokenList.push_back(token(catagoryCodeTable[_curToken], _curToken, cat[type]));
             return type;
+        }
+        if(type == _COMMENT_) {
+            return _COMMENT_;
         }
         return _ERROR_;
     }
