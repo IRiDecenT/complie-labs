@@ -4,8 +4,11 @@
 #include <vector>
 #include <set>
 #include <map>
+#include <stack>
 // 右线性文法转化NFA
 // NFA确定为DFA
+
+const int N = 1024;
 
 // 规则A->&， &表示空串
 struct productionRule
@@ -67,9 +70,7 @@ struct Grammar
 
 } grammar;
 
-const std::string ruleFilePath = "./test.txt";
-const std::string sentence = "010101010000100#";
-
+std::string ruleFilePath = "./test.txt";
 
 std::vector<std::string> FileRead(const std::string &filepath)
 {
@@ -133,6 +134,16 @@ struct NFA
     char _startState;
     // 接受状态
     char _acceptState;
+
+    inline int getIndexOfState(char c) const
+    {
+        for(int i = 0; i < _states.size(); ++i)
+        {
+            if(_states[i] == c)
+                return i;
+        }
+        return -1;
+    }
 
     void constructNFA(const Grammar& g)
     {
@@ -199,49 +210,155 @@ struct NFA
 };
 
 
+// 参考龙书上的子集构造算法实现的NFA转DFA，教材上的写的不好
 struct DFA
 {
-private:
     // 状态图邻接矩阵
     std::vector<std::vector<char>> _stateGraph;
     // 字母表
     std::vector<char> _alaphabet;
-    // 状态集合
-    std::vector<int> _states;
+    // NFA状态集合和DFA状态的映射表
+    std::map<std::set<char>, std::pair<int, bool>> _Dstates;
+    // DFA状态集合，DFA状态用int表示即下标，对应找到NFA状态集合
+    std::vector<std::set<char>> _DstatesList;
     // 开始状态
     int _startState;
     // 接受状态
-    std::set<char> _acceptStates;
+    std::set<int> _acceptStates;
 
     DFA() = delete;
-    DFA(const NFA& nfa) : _alaphabet(nfa._alaphabet)
+
+    std::set<char> getUnmarkedState()
     {
-        // 已经计算出的状态闭包，key:(DFA用数字表示)状态，value:状态闭包（NFA中状态是char）
-        std::map<int, std::set<char>> calculatedClosure;
-        std::set<char> startClosure = calClosure(nfa._startState);
+        for(auto& p : _Dstates)
+        {
+            if(!p.second.second)
+                return p.first;
+        }
+        return std::set<char>();
     }
 
-    std::set<char> calClosure(char state)
+    // 求状态集合T的epsilon闭包
+    std::set<char> epsilonClosure(const std::set<char>& T, const NFA& nfa)
     {
-        std::set<char> closure;
-        closure.insert(state);
-        for(int i = 0; i < _states.size(); ++i)
+        std::set<char> ret = T;
+        std::stack<char> st;
+        for(auto& u : T)
+            st.push(u);
+        while(!st.empty())
         {
-            if(nfa._stateGraph[state][i] == '&')
+            char top = st.top();
+            st.pop();
+            for(int i = 0; i < nfa._states.size(); ++i)
             {
-                closure.insert(nfa._states[i]);
-                closure.insert(calClosure(nfa._states[i]).begin(), calClosure(nfa._states[i]).end());
+                if(nfa._stateGraph[nfa.getIndexOfState(top)][i] == '&')
+                {
+                    if(ret.find(nfa._states[i]) == ret.end())
+                    {
+                        ret.insert(nfa._states[i]);
+                        st.push(nfa._states[i]);
+                    }
+                }
             }
+        }
+        return ret;
+    }
+
+    // 求状态集合T经过字符a的转移集合
+    std::set<char> move(const std::set<char>& T, char a, const NFA& nfa)
+    {
+        std::set<char> ret;
+        for(auto& u : T)
+        {
+            for(int i = 0; i < nfa._states.size(); ++i)
+            {
+                if(nfa._stateGraph[nfa.getIndexOfState(u)][i] == a)
+                    ret.insert(nfa._states[i]);
+            }
+        }
+        return ret;
+    }
+
+    DFA(const NFA& nfa) : _alaphabet(nfa._alaphabet), _startState(0)
+    {
+        _stateGraph.resize(N, std::vector<char>(N, '\0'));
+        auto startEpsilonClosure = epsilonClosure({nfa._startState}, nfa);
+        _DstatesList.push_back(startEpsilonClosure);
+        _Dstates[startEpsilonClosure] = {0, false};
+        while(!getUnmarkedState().empty())
+        {
+            auto T = getUnmarkedState();
+            _Dstates[T].second = true;
+            for(const auto& a : _alaphabet)
+            {
+                auto moveSet = move(T, a, nfa);
+                if(!moveSet.empty())
+                {
+                    auto U = epsilonClosure(moveSet, nfa);
+                    if(_Dstates.find(U) == _Dstates.end())
+                    {
+                        _Dstates[U] = {_Dstates.size(), false};
+                        _DstatesList.push_back(U);
+                    }
+                    _stateGraph[_Dstates[T].first][_Dstates[U].first] = a;
+                }
+            }
+        }
+        // std::cout << "开始状态的epsilon闭包:";
+        // for(auto& c : startEpsilonClosure)
+        //     std::cout << c << " ";
+        // std::cout << std::endl;
+
+        // 处理DFA的结束状态
+        for(int i = 0; i < _DstatesList.size(); ++i)
+        {
+            if(_DstatesList[i].find(nfa._acceptState) != _DstatesList[i].end())
+                _acceptStates.insert(i);
         }
     }
 
+    void printDFA()
+    {
+        std::cout << "DFA状态图:" << std::endl;
+        for(int i = 0; i < _DstatesList.size(); ++i)
+        {
+            for(int j = 0; j < _DstatesList.size(); ++j)
+            {
+                if(_stateGraph[i][j] != '\0')
+                    std::cout << i << "--" << _stateGraph[i][j] << "-->" << j << std::endl;
+            }
+        }
+        // 打印DFA的状态集合
+        std::cout << "DFA状态集合:" << std::endl;
+        for(int i = 0; i < _DstatesList.size(); ++i)
+        {
+            std::cout << i << ": { ";
+            for(auto& c : _DstatesList[i])
+                std::cout << c << " ";
+            std::cout << "}" << std::endl;
+        }
+        // 打印DFA的开始状态
+        std::cout << "DFA开始状态:" << _startState << std::endl;
+        // 打印DFA的接受状态
+        std::cout << "DFA接受状态:" << "{ ";
+        for(auto& c : _acceptStates)
+            std::cout << c << " ";
+        std::cout << "}" << std::endl;
+    }
 };
 
-
-int main()
+int main(int argc, char* argv[])
 {
+    if(argc != 2)
+    {
+        std::cerr << "Usage: " << argv[0] << " <ruleFilePath>" << std::endl;
+        exit(-1);
+    }
+    ruleFilePath = argv[1];
     init();
     NFA nfa(grammar);
     nfa.printNFA();
+    DFA dfa(nfa);
+    dfa.printDFA();
     return 0;
 }
