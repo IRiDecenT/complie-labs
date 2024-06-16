@@ -6,6 +6,12 @@
 #include <unordered_map>
 #include <set>
 #include <deque>
+#include <stack>
+
+// 用于表达式求值的符号栈与数字栈
+std::stack<char> opStack;
+std::stack<int> numStack;
+std::string op = "+-*/";
 
 // 规则A->&， &表示空串
 struct productionRule
@@ -39,12 +45,15 @@ struct Grammar
 
     inline bool isTerminal(char c) const
     {
+        if(c >= '0' && c <= '9')
+            return true;
         return std::find(_terminalSymbols.begin(), _terminalSymbols.end(), c) != _terminalSymbols.end();
     }
 
     char reduction(const std::string &rhs) const
     {
-
+        if(rhs.size() == 1 && rhs[0] >= '0' && rhs[0] <= '9')
+            return 'F';
         for(auto& p : _productionRules)
         {
             bool flag = true;
@@ -76,7 +85,26 @@ struct Grammar
                     }
                 }
                 if(flag)
+                {
+                    if(rhs.size() == 3 && op.find(rhs[1]) != std::string::npos)
+                    {
+                        char Operator = opStack.top();
+                        opStack.pop();
+                        int r = numStack.top();
+                        numStack.pop();
+                        int l = numStack.top();
+                        numStack.pop();
+                        if(Operator == '+')
+                            numStack.push(l + r);
+                        else if(Operator == '-')
+                            numStack.push(l - r);
+                        else if(Operator == '*')
+                            numStack.push(l * r);
+                        else if(Operator == '/')
+                            numStack.push(l / r);
+                    }
                     return p._lhs;
+                }
             }
         }
         return '\0';
@@ -110,6 +138,8 @@ struct Grammar
     }
     inline int getIndexOfTerminal(char c) const
     {
+        if(c >= '0' && c <= '9')
+            return std::find(_terminalSymbols.begin(), _terminalSymbols.end(), 'i') - _terminalSymbols.begin();
         for(int i = 0; i < _terminalSymbols.size(); ++i)
         {
             if(_terminalSymbols[i] == c)
@@ -121,8 +151,8 @@ struct Grammar
 } grammar;
 
 const std::string ruleFilePath = "./operatorgrammar.txt";
-const std::string sentence = "(i+i)*i-i/i#";
-// const std::string sentence = "i+i#";
+// const std::string sentence = "(i+i)*i-i/i#";
+const std::string sentence = "(1+2)*3-4/2#";
 
 typedef std::vector<std::vector<char>> PriorityTable;
 
@@ -314,7 +344,7 @@ public:
                 for(auto& c : analyseStack)
                     std::cout << c;
                 std::cout << "\t\t" << sentence.substr(idx) << "\t\t接受" << std::endl;
-                std::cout << "接受: "<< sentence << std::endl;
+                std::cout << "接受: "<< sentence << ", 表达式的值为: " << numStack.top() << std::endl;
                 return;
             }
             else
@@ -332,6 +362,11 @@ public:
                         std::cout << c;
                     std::cout << "\t\t" << sentence.substr(idx) << "\t\t移进" << std::endl;
                     analyseStack.push_back(a);
+
+                    if(a >= '0' && a <= '9')
+                        numStack.push(a - '0');
+                    if(op.find(a) != std::string::npos)
+                        opStack.push(a);
                     ++idx;
                 }
                 else if(priorityTable[g.getIndexOfTerminal(analyseStack[pos])][g.getIndexOfTerminal(a)] == '>')
@@ -374,9 +409,10 @@ public:
                             // std::cout << rhs << std::endl;
                             while(deleteCount--)
                                 analyseStack.pop_back();
-                            if(g.reduction(rhs) != '\0')
+                            char lhs = g.reduction(rhs);
+                            if(lhs != '\0')
                             {
-                                analyseStack.push_back(g.reduction(rhs));
+                                analyseStack.push_back(lhs);
                                 break;
                             }
                             else
