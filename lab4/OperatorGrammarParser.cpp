@@ -150,9 +150,14 @@ struct Grammar
 
 } grammar;
 
+// // const std::string sentence = "(i+i)*i-i/i#";
 const std::string ruleFilePath = "./operatorgrammar.txt";
-// const std::string sentence = "(i+i)*i-i/i#";
 const std::string sentence = "(1+2)*3-4/2#";
+
+// const std::string ruleFilePath = "./test.txt";
+// const std::string sentence = "(1+2)*3-4/2#";
+
+
 
 typedef std::vector<std::vector<char>> PriorityTable;
 

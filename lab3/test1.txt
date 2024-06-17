@@ -1,0 +1,9 @@
+S->aBS
+S->bAS
+A->c
+A->&
+B->d
+B->&
+S->&
+SAB
+abcd

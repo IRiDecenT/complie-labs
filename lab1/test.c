@@ -1,5 +1,6 @@
 int main() {
     init();
+    int 0x = 10;
     double x = 10.31;/* some comment */
     int m = 0;
     int y = 310;

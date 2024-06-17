@@ -1,0 +1,6 @@
+S->LaS
+S->L
+L->(S)
+L->i
+SL
+a()i
